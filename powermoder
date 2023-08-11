@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+Version="0.2.2"
+Etc_Path="/etc/powermoder"
+Powermoder_Extra_Flag=${Powermoder_Extra_Flag:-1}
+function echo_help(){
+cat << EOF
+powermoder: switcher of power mode
+need root privilege
+usage:
+    $0 <power manager> <profile name>
+<power manager> can be one of those below:
+    tlp
+    power-profiles-daemon
+    ppd ( =power-profiles-daemon )
+    tuned
+    config ( use all power manager in $Etc_Path/<profile name>/manager.conf  )
+<profile name> is under $Etc_Path
+Version: $Version
+EOF
+exit 1
+}
+
+function pre_run(){
+    if [ -e $Etc_Path/$1/pre-run.sh ]
+    then
+        echo "pre-run shell running"
+        bash "$Etc_Path"'/'"$1"/pre-run.sh
+    else
+        echo "no pre-run.sh found in profile $1"
+    fi
+}
+
+[ `whoami` == 'root' ] || {
+echo "need root privilege"
+exit 1
+}
+[ $# -eq 2 ] || echo_help
+[ -d $Etc_Path/$2 ] || {
+echo "profile $2 not found"
+exit 1
+}
+[ -e $Etc_Path ] || mkdir -p $Etc_Path
+case $1 in
+    tlp)
+        if [ -e $Etc_Path/$2/tlp.conf ]
+        then
+            [ $Powermoder_Extra_Flag -eq 0 ] || pre_run $2
+            rm /etc/tlp.conf
+            ln -s "$Etc_Path"'/'"$2"/tlp.conf /etc/tlp.conf
+            echo "tlp switching"
+            tlp start
+        else
+            echo "no tlp.conf found in profile $2"
+        fi
+        if [ -e $Etc_Path/$2/tlp.sh ]
+        then
+            echo "tlp shell running"
+            bash "$Etc_Path"'/'"$2"/tlp.sh
+        else
+            echo "no tlp.sh found in profile $2"
+        fi
+    ;;
+    ppd|power-profiles-daemon)
+        if [ -e $Etc_Path/$2/power-profiles-daemon.sh ]
+        then
+            [ $Powermoder_Extra_Flag -eq 0 ] || pre_run $2
+            echo "power-profiles-daemon shell running"
+            bash "$Etc_Path"'/'"$2"/power-profiles-daemon.sh
+        else
+            echo "no power-profiles-daemon.sh found in profile $2"
+        fi
+    ;;
+    tuned)
+        if [ -e $Etc_Path/$2/tuned.sh ]
+        then
+            [ $Powermoder_Extra_Flag -eq 0 ] || pre_run $2
+            echo "tuned shell running"
+            bash "$Etc_Path"'/'"$2"/tuned.sh
+        else
+            echo "no tuned.sh found in profile $2"
+        fi
+    ;;
+    config)
+        export Powermoder_Extra_Flag=0
+        pre_run $2
+        source "$Etc_Path"'/'"$2"/manager.conf
+        [[ $TLP == 'True' || $TLP == 'true' || $TLP == '1' || $TLP == 'yes' || $TLP == 'y' || $TLP == 'Yes' || $TLP == 'Y' || $TLP == 'on' || $TLP == 'On' ]] && $0 tlp $2
+        [[ $POWER_PROFILES_DAEMON == 'True' || $POWER_PROFILES_DAEMON == 'true' || $POWER_PROFILES_DAEMON == '1' || $POWER_PROFILES_DAEMON == 'yes' || $POWER_PROFILES_DAEMON == 'y' || $POWER_PROFILES_DAEMON == 'Yes' || $POWER_PROFILES_DAEMON == 'Y' || $POWER_PROFILES_DAEMON == 'on' || $POWER_PROFILES_DAEMON == 'On' ]] && $0 ppd $2
+        [[ $TUNED == 'True' || $TUNED == 'true' || $TUNED == '1' || $TUNED == 'yes' || $TUNED == 'y' || $TUNED == 'Yes' || $TUNED == 'Y' || $TUNED == 'on' || $TUNED == 'On' ]] && $0 tuned $2
+        Powermoder_Extra_Flag=1
+    ;;
+    *)
+        echo_help
+    ;;
+esac
+[ $Powermoder_Extra_Flag -eq 0 ] || {
+    if [ -e $Etc_Path/$2/post-run.sh ]
+    then
+        echo "post-run shell running"
+        bash "$Etc_Path"'/'"$2"/post-run.sh
+    else
+        echo "no post-run.sh found in profile $2"
+    fi
+    [ $2 == "latest" ] || {
+        [ -e $Etc_Path/latest ] && rm $Etc_Path/latest
+        ln -s $Etc_Path/$2 $Etc_Path/latest
+    }
+    #[ -d /etc/powermoderd ] && echo $2 > /etc/powermoderd/latest
+}
+unset Powermoder_Extra_Flag
+unset Etc_Path
+exit 0

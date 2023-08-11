@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+Ac_Profile="performance"
+Bat_Profile="powersave"
+Init_Profile="latest"
+Daemon_Mode="On"
+Refresh_Time=5
+export PATH=$PATH:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+[ -e /etc/powermoderd.conf ] && source /etc/powermoderd.conf
+
+function batmonitor_sys(){
+	unset BAT_TIME
+	AC_STAT=Offline
+	BAT_STAT=Discharging
+	for Line in `ls -d /sys/class/power_supply/AC*`
+	do
+		[ `cat "$Line"/online` -eq 1 ] && AC_STAT=Online
+	done
+	for Line in `ls -d /sys/class/power_supply/BAT*`
+	do
+		[ -e "$Line"/capacity ] && BAT_CAP=`cat "$Line"/capacity`
+		[ -e "$Line"/status ] && BAT_STAT=`cat "$Line"/status`
+	done
+	unset Line
+	Ac_Status=$AC_STAT
+	Battery_Status=$BAT_STAT
+	Battery_Capacity=$BAT_CAP
+}
+
+function daemon_run(){
+    while true
+    do
+        [ -e /etc/powermoderd.conf ] && source /etc/powermoderd.conf
+        batmonitor_sys
+        if [ $AC_STAT == "Offline" ]
+        then
+            powermoder config $Bat_Profile
+        else
+            powermoder config $Ac_Profile
+        fi
+        sleep $Refresh_Time
+    done
+}
+
+[ `whoami` == 'root' ] || {
+echo "need root privilege"
+exit 1
+}
+if [[ $1 == "init" ]]
+then
+    powermoder config $Init_Profile
+    [[ $Daemon_Mode == 'True' || $Daemon_Mode == 'true' || $Daemon_Mode == '1' || $Daemon_Mode == 'yes' || $Daemon_Mode == 'y' || $Daemon_Mode == 'Yes' || $Daemon_Mode == 'Y' || $Daemon_Mode == 'on' || $Daemon_Mode == 'On' ]] && daemon_run
+else
+    nohup $0 init > /dev/null 2>&1&
+fi

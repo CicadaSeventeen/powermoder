@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+from pystray import MenuItem as item
+import pystray
+from PIL import Image, ImageDraw
+#import subprocess
+import os
+#import sys
+#from threading import Thread
+#import time
+
+version="0.2.4"
+
+def image_high(width, height, color):
+    image = Image.new('RGBA', (width, height), (255, 0, 0, 0))
+    dc = ImageDraw.Draw(image)
+    dc.rectangle(
+        (width *5 // 11, height // 4, width *6 // 11, height *3 // 4),
+        fill=color)
+    dc.rectangle(
+        (width // 4, height *5 // 11, width *3 // 4, height *6 // 11),
+        fill=color)
+    dc.ellipse(xy=(width //8,height //8,width *7 //8,height *7 //8 ),outline=color,width=2)
+    return image
+
+def image_mid(width, height, color):
+    image = Image.new('RGBA', (width, height), (255, 0, 0, 0))
+    dc = ImageDraw.Draw(image)
+    dc.rectangle(
+        (width // 4, height *5 // 11, width *3 // 4, height *6 // 11),
+        fill=color)
+    dc.ellipse(xy=(width //8,height //8,width *7 //8,height *7 //8 ),outline=color,width=2)
+    return image
+
+def image_low(width, height, color):
+    image = Image.new('RGBA', (width, height), (255, 0, 0, 0))
+    dc = ImageDraw.Draw(image)
+    dc.ellipse(xy=(width *4 //9,height *4 //9,width *5 //9,height *5 //9 ),fill=color)
+    dc.ellipse(xy=(width //8,height //8,width *7 //8,height *7 //8 ),outline=color,width=2)
+    return image
+
+def update():
+    icon.title = os.readlink('/etc/powermoder/latest').split('/')[3]
+    #print(icon.title)
+    #print('flag')
+    icon.icon = geticon(icon.title)
+
+def powersave():
+    os.system("/usr/bin/powermoder-switch powersave")
+    update()
+
+def balance():
+    os.system("/usr/bin/powermoder-switch balance")
+    update()
+
+def performance():
+    os.system("/usr/bin/powermoder-switch performance")
+    update()
+
+def geticon(icon_name):
+    #print(icon_name)
+    if icon_name == 'powersave':
+        return image_low(64,64,'white')
+    elif icon_name == 'performance':
+        return image_high(64,64,'white')
+    else:
+        return image_mid(64,64,'white')
+
+def icon_run():
+    icon.run()
+
+
+#os.system("/usr/bin/powermoder-switch balance")
+notify = os.readlink('/etc/powermoder/latest').split('/')[3]
+image = geticon(notify)
+menu = (item('performance', performance), item('balance', balance),item('powersave', powersave))
+icon = pystray.Icon("powermoder tray",image,notify,menu)
+icon.run()
+#thread_icon = Thread(target=icon_run)
+#thread_icon.start()

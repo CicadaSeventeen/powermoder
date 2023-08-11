@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+
+
+import getpass
+from gi.repository import GLib
+from pydbus import SystemBus
+import os
+
+
+BUS_NAME = 'net.hadess.PowerProfiles'
+
+
+class FakedNetHadessPowerProfiles:
+    dbus = f"""
+        <node>
+            <interface name='{BUS_NAME}'>
+                <method name='HoldProfile'>
+                    <arg name="profile" type="s" direction="in"/>
+                    <arg name="reason" type="s" direction="in"/>
+                    <arg name="application_id" type="s" direction="in" />
+                    <arg name="cookie" type="u" direction="out"/>
+                </method>
+                <method name="ReleaseProfile">
+                    <arg name="cookie" type="u" direction="in"/>
+                </method>
+                <property name="ActiveProfile" type="s" access="readwrite"/>
+                <property name="PerformanceInhibited" type="s" access="read"/>
+                <property name="PerformanceDegraded" type="s" access="read"/>
+                <property name="Actions" type="as" access="read"/>
+                <property name="Profiles" type='aa{{sv}}' access="read"/>
+                <property name="ActiveProfileHolds" type='aa{{sv}}' access="read"/>
+            </interface>
+        </node>
+    """
+
+#                <signal name="ProfileReleased">
+#                    <arg name="cookie" type="u" direction="out"/>
+#                </signal>
+
+    def __init__(self):
+        # ActiveProfile
+        self._active_profile='balanced'
+        os.system("/usr/sbin/powermoder config balance")
+        #self._active_profile = os.readlink('/etc/powermoder/latest').split('/')[3]
+        #if self._active_profile == 'powersave' :
+        #    self._active_profile = 'power-saver'
+        #elif self._active_profile == 'balanced' :
+        #    self._active_profile = 'balance'
+        #elif self._active_profile == 'performance' :
+        #    self._active_profile = 'performance'
+        #else :
+        #    self._active_profile = 'balanced'
+        # Profiles
+        self._profiles = [{'Profile':GLib.Variant('s', 'power-saver'),'Driver':GLib.Variant('s', 'powermoder'),},{'Profile':GLib.Variant('s', 'balanced'),'Driver':GLib.Variant('s', 'powermoder')},{'Profile':GLib.Variant('s', 'performance'),'Driver':GLib.Variant('s', 'powermoder'),}]
+        #print(self._profiles)
+        #holds(not support yet)
+        self._activeprofileholds=[]
+        #actions(not support yet)
+        self._actions=[]
+        #
+        user = getpass.getuser()
+        #print(f'I am running as "{user}"')
+        
+    @property
+    def Profiles(self):
+        return self._profiles
+
+    @property
+    def PerformanceInhibited(self):
+        print("PerformanceInhibited") 
+        return ''
+
+    @property
+    def Actions(self):
+        print("Actions")
+        return self._actions
+
+    @property
+    def PerformanceDegraded(self):
+        print("PerformanceDegraded")
+        return ''
+
+    @property
+    def ActiveProfileHolds(self):
+        print("ActiveProfileHolds")
+        return self._activeprofileholds
+
+    @property
+    def ActiveProfile(self):
+        return self._active_profile
+
+    @ActiveProfile.setter
+    def ActiveProfile(self, value):
+        print(value)
+        if value == 'power-saver' :
+            self._active_profile = value
+            powermode = 'powersave'
+        elif value == 'balanced' :
+            self._active_profile = value
+            powermode = 'balance'
+        elif value == 'performance' :
+            self._active_profile = value
+            powermode = 'performance'
+        else :
+            powermode = 'balanced'
+        os.system(f"""/usr/sbin/powermoder config {powermode}""")
+        del powermode
+
+    def HoldProfile(self,profile,reason,application_id):
+        print("HoldProfiles") 
+        return 0
+
+    def ReleaseProfile(cookie):
+        print("ReleaseProfiles") 
+        return 
+
+# It needs to be SystemBus. SessionBus would be used if you start
+# your D-Bus service outside of systemd in a terminal.
+bus = SystemBus()
+bus.publish(BUS_NAME, FakedNetHadessPowerProfiles())
+loop = GLib.MainLoop()
+loop.run()

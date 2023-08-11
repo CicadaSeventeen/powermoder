@@ -1,0 +1,9 @@
+[Unit]
+Description=powermdoer daemon
+
+[Service]
+Type=simple
+ExecStart=bash -ic "powermoderd init"
+
+[Install]
+WantedBy=multi-user.target

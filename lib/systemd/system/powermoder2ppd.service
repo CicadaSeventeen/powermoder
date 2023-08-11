@@ -1,0 +1,11 @@
+[Unit]
+Description=powermoder dbus works like power-profiles-daemon
+
+[Service]
+Environment=PYTHONUNBUFFERED=true
+Type=dbus
+BusName=net.hadess.PowerProfiles
+ExecStart=sh -ic "powermoder2ppd"
+
+[Install]
+WantedBy=multi-user.target
