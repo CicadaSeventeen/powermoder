@@ -4,7 +4,9 @@
 import getpass
 from gi.repository import GLib
 from pydbus import SystemBus
+from pydbus.generic import signal
 import os
+import dbus
 
 
 BUS_NAME = 'net.hadess.PowerProfiles'
@@ -33,9 +35,12 @@ class FakedNetHadessPowerProfiles:
         </node>
     """
 
+
 #                <signal name="ProfileReleased">
 #                    <arg name="cookie" type="u" direction="out"/>
 #                </signal>
+
+    PropertiesChanged = signal()
 
     def __init__(self):
         # ActiveProfile
@@ -63,12 +68,13 @@ class FakedNetHadessPowerProfiles:
         
     @property
     def Profiles(self):
+        print("Profiles")
         return self._profiles
 
     @property
     def PerformanceInhibited(self):
         print("PerformanceInhibited") 
-        return ''
+        return ""
 
     @property
     def Actions(self):
@@ -87,6 +93,7 @@ class FakedNetHadessPowerProfiles:
 
     @property
     def ActiveProfile(self):
+        print("ActiveProfile")
         return self._active_profile
 
     @ActiveProfile.setter
@@ -103,8 +110,11 @@ class FakedNetHadessPowerProfiles:
             powermode = 'performance'
         else :
             powermode = 'balanced'
+        self.PropertiesChanged(BUS_NAME,{"ActiveProfile": value},[])
         os.system(f"""/usr/sbin/powermoder config {powermode}""")
         del powermode
+        #emit.ProfileReleased(1)
+        return 0
 
     def HoldProfile(self,profile,reason,application_id):
         print("HoldProfiles") 
@@ -116,7 +126,8 @@ class FakedNetHadessPowerProfiles:
 
 # It needs to be SystemBus. SessionBus would be used if you start
 # your D-Bus service outside of systemd in a terminal.
+emit=FakedNetHadessPowerProfiles()
 bus = SystemBus()
-bus.publish(BUS_NAME, FakedNetHadessPowerProfiles())
+bus.publish(BUS_NAME, emit)
 loop = GLib.MainLoop()
 loop.run()
